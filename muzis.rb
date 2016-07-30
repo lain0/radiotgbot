@@ -19,15 +19,13 @@ PATH_OBJ = '/api/stream_from_obj.api'
 # 3) Создание релевантного списка треков по списку слов (по тексту песен)
 PATH_LYRICS = '/api/stream_from_lyrics.api'
 # 4) Создание релевантного списка треков по значению или значениям.
-PATH = '/api/stream_from_values.api'
+PATH_VALUES = '/api/stream_from_values.api'
 # 5) Получение списка похожих исполнителей
 PATH_SIMILAR = '/api/similar_performers.api'
-
-
-
+PATH_FILE_URL = 'http://f.muzis.ru/'
 
 # url = 'https://api.spotify.com/v1'
-data = {'performer' => 'Beatles'}
+#data = {'performer' => 'Beatles'}
 
 conn = Faraday.new(url: URL) do |faraday|
   faraday.request  :url_encoded
@@ -35,7 +33,7 @@ conn = Faraday.new(url: URL) do |faraday|
   faraday.adapter Faraday.default_adapter
 #  faraday.response :logger
   faraday.response :json
-  faraday.headers['User-Agent'] = 'muzis-agent Danilov'
+  faraday.headers['User-Agent'] = 'muzis-agent'
   faraday.headers['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8'
 #  faraday.proxy "#{proxy}"
 end
@@ -49,7 +47,7 @@ end
 
 #response = conn.post('performer' => 'Beatles')
 #p body
-puts "end".red
+#puts "end".red
 #p conn
 # puts "PATH_SEARCH new".red
 # conn.post do |req|
@@ -58,21 +56,32 @@ puts "end".red
 # #  req.headers['User-Agent'] = 'muzis-agent Danilov'
 #   req.body = '{"q_performer": "rammstein"}'
 # end
-puts "end".blue
+#puts "end".blue
 #res = conn.post(PATH_SEARCH, {"q_performer": "rammstein"}).body
 def similar_by(parameter, name)
   res = conn.post(PATH_SEARCH, {"q_performer": name}).body
   id = res['performers'][0]['id']
-
 end
 #puts similar_by("q_performer", "Стас Михайлов")
 puts "=====---".red
-res = conn.post(PATH_SEARCH, {"q_performer": "Стас Михайлов"}).body
-id = res['performers'][0]['id']
+#res = conn.post(PATH_SEARCH, {"q_performer": "Стас Михайлов"}).body
+#id = res['performers'][0]['id']
 #puts id =  res.performers.id
-res = conn.post(PATH_SIMILAR, {"performer_id": id}).body
+#res = conn.post(PATH_SIMILAR, {"performer_id": id}).body
+#res = conn.post(PATH_SEARCH, {"performer_id": id}).body
+#
+puts "real_search".red
+res = conn.post(PATH_VALUES, {"values": "245","size": "5"}).body
+res['songs'].each do |a|
+  puts mp3_link = PATH_FILE_URL + a['file_mp3']
+
+  puts "#{a['file_mp3']}".green
+  puts "#{a['performer']}".green
+  puts "#{a}".red
+end
+
 #p info = JSON.parse(res)
-p res
+#p res
 #p conn.response.dump_body(body)
 #puts site = Faraday.new.post(URL).body
 # ===========================
