@@ -1,4 +1,17 @@
 <?php
+
+/********************************************
+
+Уважаемый читатель(-ца).
+
+Этот код не является образцом красоты и качества, он написан ночью и переписан несколько раз.
+
+Я умею лучше :))) 
+
+*********************************************/
+
+
+
 require_once __DIR__ . "/../../../../../vendor/autoload.php";
 
 use \App\UserInfo;
@@ -52,7 +65,7 @@ class Handler extends HandlerBase{
 			$this->vars = new Vars( $l );						
 		}
 
-		if( ( "start" == $c["command"] ) && ( ! isset( $c["arg"] ) ) ) 
+		if( ( "start" == $c["command"] ) && ( "" == $c["arg"] ) ) 
 		{
 			$this->user->changeState( "questionary_1" );
 			$ret[] = $this->tgbot->createTextMessage( $this->vars->texts["questionary_1"], $this->vars->menus["questionary_1"] );
@@ -159,6 +172,28 @@ class Handler extends HandlerBase{
 			$ret[] = $this->tgbot->createTextMessage( $this->vars->texts[$textIndex], $this->vars->menus["default"] );
 			$this->user->changeState( "" );
 			
+		
+		}
+		else if( "search" == $this->user->base["state"] )
+		{
+			$textIndex = "";
+			if( "cancel" == $c["command"] )
+			{
+				$ret[] = $this->tgbot->createTextMessage( $this->vars->texts[ "help" ], $this->vars->menus[ "default" ] );
+			}
+			else
+			{
+				$ret[] = $this->tgbot->createTextMessage( $this->vars->texts[ "search_result" ], $this->vars->menus[ "stream" ] );
+			
+				$songs = \Recommendations\searchSongs( $this->user->tid, $text );
+				foreach( $songs as $song )
+				{
+					$ret[] = $this->tgbot->createAudio( $song->telegram_id, "Hello!", $this->vars->menus["stream"] );
+				}
+				\Recommendations\streamSended( $this->user->tid, $songs );
+			}
+			$this->user->changeState( "" );
+			
 		}
 		else if( "stream" == $c["command"] )
 		{
@@ -197,6 +232,11 @@ class Handler extends HandlerBase{
 		{
 			$this->user->changeState( "importvk" );
 			$ret[] = $this->tgbot->createTextMessage( $this->vars->texts["importvk"], $this->vars->menus["importvk"] );
+		}
+		else if( "search" == $c["command"] )
+		{
+			$this->user->changeState( "search" );
+			$ret[] = $this->tgbot->createTextMessage( $this->vars->texts["search"], $this->vars->menus["cancel"] );
 		}
 		else if( "like" == $c["command"] )
 		{

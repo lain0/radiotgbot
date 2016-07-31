@@ -1,5 +1,14 @@
 <?php
 
+/********************************************
+
+Уважаемый читатель(-ца).
+
+Этот код не является образцом красоты и качества, он написан ночью и переписан несколько раз.
+
+Я умею лучше :))) 
+
+*********************************************/
 
 namespace Recommendations
 {
@@ -29,6 +38,45 @@ use \App\UserTag;
 		return true;
 	}
 
+	function searchSongs( $uid, $searchString )
+	{
+		
+		$data = array();
+		
+		$url = 'http://muzis.ru';
+		$search = '/api/search.api';
+		$file_url = 'http://f.muzis.ru/';
+
+		$vars = array("q_lyrics" => (string)$searchString, "size" => "100");
+		$api_url = $url . $search;
+
+			$ch = curl_init( $api_url );
+
+		curl_setopt($ch, CURLOPT_POSTFIELDS,  http_build_query( $vars) );
+		curl_setopt($ch, CURLOPT_HEADER, 0);
+		curl_setopt($ch, CURLOPT_POST, 1);
+
+		 curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+
+		$result = json_decode( curl_exec($ch) );
+		//var_dump( $result );
+		$songs = $result->songs;
+
+		$songsMuzisIds = array();
+		foreach( $songs as $song )
+		{
+			$songsMuzisIds[] = $song->id;
+		}
+		
+		$songsToReturn = \App\Song::whereIn('muzis_id', $songsMuzisIds )->take(5)->get() ;
+		$songsArray = array();
+		foreach( $songsToReturn as $s )
+		{
+			$songsArray[] = $s;
+		}
+		return $songsArray;
+	}
+	
 	function getRecommendationSongsForUserForEmoji( $uid, $emojiCode )
 	{
 		$tagsForEmojies = [
