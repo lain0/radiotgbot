@@ -1,5 +1,4 @@
 <?php
-
 require_once __DIR__ . "/../../../../../vendor/autoload.php";
 
 use \App\UserInfo;
@@ -7,9 +6,7 @@ use \App\Song;
 use \App\Questionary;
 use \App\UserBase;
 
-
 use Illuminate\Database\Capsule\Manager as Capsule;
-
 
 use Carbon\Carbon;
 
@@ -46,23 +43,33 @@ class Handler extends HandlerBase{
 		$c = $this->detect_command( $text );
 		$m = $message_original->object->message;
 		
-		if ( $this->user->isNew ){
-			$this->user->set_language("ru");
-			$this->vars = new Vars($l);						
+		if ( ( $this->user->isNew ) || ( "start" == $c["command"] ) ){
+			$l = "ru";
+			$this->user->set_language( $l );
+			$this->vars = new Vars( $l );						
 			$this->user->changeState( "questionary_1" );
 			$ret[] = $this->tgbot->createTextMessage( $this->vars->texts["questionary_1"], $this->vars->menus["questionary_1"] );
 			
 		}
-		else if( "start" == $c["command"] )
-		{
-		}
 		else if(  "questionary_1" == $this->user->base["state"] )
 		{
+				$maleGenres = [ 5258, 245, 202, 11, 31961 ];
+				$femaleGenres = [ 32496, 10, 269, 8, 4362, 31961 ];
+					
 				if( in_array( $c["command"], array("male", "female") ) )
 				{
 					$q = new Questionary;
 					$q->uid = $this->user->tid;
 					$q->sex = $c["command"];
+					if( "male" == $q->sex)
+					{
+						\Recommendations\setUserGenres( $this->user->tid, $maleGenres );
+					}
+					if( "female" == $q->sex)
+					{
+						\Recommendations\setUserGenres( $this->user->tid, $femaleGenres );
+					}
+					
 					$q->save();
 					$this->user->changeState( "" );
 					$ret[] = $this->tgbot->createTextMessage( $this->vars->texts["welcome"], $this->vars->menus["default"] );
@@ -70,6 +77,8 @@ class Handler extends HandlerBase{
 				}
 				else if( $c["command"] == "finish_questionary" )
 				{
+					\Recommendations\setUserGenres( $this->user->tid, array_merge( $femaleGenres, $maleGenres ) );
+					
 					$ret[] = $this->tgbot->createTextMessage( $this->vars->texts["welcome"], $this->vars->menus["default"] );
 					$ret[] = $this->tgbot->createTextMessage( $this->vars->texts["help"], $this->vars->menus["default"] );
 				}
@@ -81,20 +90,65 @@ class Handler extends HandlerBase{
 		}
 		else if( "stream" == $c["command"] )
 		{
-			$songs = \App\Song::take(5)->get(); // TODO recommends
+			$songs = \Recommendations\getRecommendationSongsForUser( $this->user->tid );
+			$ret[] = $this->tgbot->createTextMessage( $this->vars->texts["rate_stream"], $this->vars->menus["stream"] );
 			foreach( $songs as $song )
 			{
-				$ret[] = $this->tgbot->createAudio( $song->telegram_id, "" );
+				$ret[] = $this->tgbot->createAudio( $song->telegram_id, "Hello!", $this->vars->menus["stream"] );
 			}
+			\Recommendations\streamSended( $this->user->tid, $songs );
+		}
+		else if( in_array( $c["command"], array("emojilove", "emojirussia", "emojiwinter", "emojisport") ) ) 
+		{
+			$songs = \Recommendations\getRecommendationSongsForUserForEmoji( $this->user->tid, $c["command"] );
+			$ret[] = $this->tgbot->createTextMessage( $this->vars->texts["rate_stream_emoji"], $this->vars->menus["stream_emoji"] );
+			foreach( $songs as $song )
+			{
+				$ret[] = $this->tgbot->createAudio( $song->telegram_id, "Hello!", $this->vars->menus["stream_emoji"] );
+			}
+			\Recommendations\streamSended( $this->user->tid, $songs );
+		}
+		else if( "stream_emoji" == $c["command"] )
+		{
+			$ret[] = $this->tgbot->createTextMessage( $this->vars->texts["stream_emoji"], $this->vars->menus["stream_emoji"] );
+		}
+		else if( "like" == $c["command"] )
+		{
+			if( isset( $m->reply_to_message ) )
+			{
+				if( isset( $m->reply_to_message->audio->file_id ) )
+				{
+					\Recommendations\voteForSong( $this->user->tid, $m->reply_to_message->audio->file_id, +10 ); // TODO magic constant
+				}
+			}
+			else
+			{
+				\Recommendations\voteForLastStream( $this->user->tid, +10 ); // TODO magic constant
+			}
+			$ret[] = $this->tgbot->createTextMessage( $this->vars->texts["after_like"], $this->vars->menus["default"] );
 			
-			
+		}
+		else if( "dislike" == $c["command"])
+		{
+			if( isset( $m->reply_to_message ) )
+			{
+				if( isset( $m->reply_to_message->audio->file_id ) )
+				{
+					\Recommendations\voteForSong( $this->user->tid, $m->reply_to_message->audio->file_id, -10 ); // TODO magic constant
+				}
+			}
+			else
+			{
+				\Recommendations\voteForLastStream( $this->user->tid, -10 ); // TODO magic constant
+			}
+			$ret[] = $this->tgbot->createTextMessage( $this->vars->texts["after_dislike"], $this->vars->menus["default"] );
 		}
 		if( empty( $ret ) )
 		{
 			$da = $this->process_default_actions( $c["command"], $c["arg"] );
-			if( is_array( $da ) )
+			if( $da )
 			{
-				$ret = $da;
+				$ret[] = $da;
 			}
 		}
 

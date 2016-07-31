@@ -11,6 +11,7 @@ require 'json'
 require 'faraday'
 require 'faraday_middleware'
 
+require '../yandex.rb'
 URL = 'http://muzis.ru'
 # 1) Поиск по трекам и исполнителям по названию трека или исполнителя, тексту трека, значению.
 PATH_SEARCH = '/api/search.api'
@@ -34,16 +35,16 @@ conn = Faraday.new(url: URL) do |faraday|
 #  faraday.response :logger
   faraday.response :json
   faraday.headers['User-Agent'] = 'muzis-agent'
-  faraday.headers['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8'
+#  faraday.headers['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8'
 #  faraday.proxy "#{proxy}"
 end
-puts "PATH_LYRICS new conn".red
-aa = conn.post(PATH_LYRICS, {"lyrics": "снег"}).body
-aa['songs'].each do |a|
-  p a
-  puts "#{a['performer']}".green
-#  puts "a".red
-end
+# puts "PATH_LYRICS new conn".red
+# aa = conn.post(PATH_LYRICS, {"lyrics": "снег"}).body
+# aa['songs'].each do |a|
+#   p a
+#   puts "#{a['performer']}".green
+# #  puts "a".red
+# end
 
 #response = conn.post('performer' => 'Beatles')
 #p body
@@ -70,15 +71,15 @@ puts "=====---".red
 #res = conn.post(PATH_SIMILAR, {"performer_id": id}).body
 #res = conn.post(PATH_SEARCH, {"performer_id": id}).body
 #
-puts "real_search".red
-res = conn.post(PATH_VALUES, {"values": "245","size": "5"}).body
-res['songs'].each do |a|
-  puts mp3_link = PATH_FILE_URL + a['file_mp3']
+# puts "real_search".red
+# res = conn.post(PATH_VALUES, {"values": "245","size": "5"}).body
+# res['songs'].each do |a|
+#   puts mp3_link = PATH_FILE_URL + a['file_mp3']
 
-  puts "#{a['file_mp3']}".green
-  puts "#{a['performer']}".green
-  puts "#{a}".red
-end
+#   puts "#{a['file_mp3']}".green
+#   puts "#{a['performer']}".green
+#   puts "#{a}".red
+# end
 
 #p info = JSON.parse(res)
 #p res
@@ -87,3 +88,4 @@ end
 # ===========================
 
 
+puts YANDEX_TOKEN
