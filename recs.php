@@ -35,7 +35,8 @@ use \App\UserTag;
 			"emojilove"=>[23515,23508,23509],
 			"emojirussia"=>[22453,],
 			"emojiwinter"=>[32489,],
-			"emojisport"=>[22575,]
+			"emojisport"=>[22575,],
+			"emojiparty"=>[20255,]
 		];
 	
 		$tags = $tagsForEmojies[ $emojiCode ];

@@ -5,6 +5,7 @@ use \App\UserInfo;
 use \App\Song;
 use \App\Questionary;
 use \App\UserBase;
+use \App\Photo;
 
 use Illuminate\Database\Capsule\Manager as Capsule;
 
@@ -43,17 +44,70 @@ class Handler extends HandlerBase{
 		$c = $this->detect_command( $text );
 		$m = $message_original->object->message;
 		
-		if ( ( $this->user->isNew ) || ( "start" == $c["command"] ) ){
+		if ( $this->user->isNew )
+		{
+			$this->user->startbot();
 			$l = "ru";
 			$this->user->set_language( $l );
 			$this->vars = new Vars( $l );						
+		}
+
+		if( ( "start" == $c["command"] ) && ( ! isset( $c["arg"] ) ) ) 
+		{
 			$this->user->changeState( "questionary_1" );
 			$ret[] = $this->tgbot->createTextMessage( $this->vars->texts["questionary_1"], $this->vars->menus["questionary_1"] );
-			
+		}
+		else if( "start" == $c["command"] && isset( $c["arg"]) )
+		{
+				$uh = User::get_user_by_hash( $c["arg"] );
+				$this->user->set_ref_data( $c["arg"] );
+				
+				if( $uh["uid"] /*&& $uh["uid"] != $this->user->tid*/ )
+				{
+					$friendUid = $uh["uid"];
+					
+					$this->user->changeState( "friend_music_" . $friendUid );
+		
+					$toSend = $this->vars->texts["friend_music"];
+					$toSend = str_replace( "%name%", $uh["first_name"] . " " . $uh["last_name"] , $toSend );
+					$ret[] = $this->tgbot->createTextMessage( $toSend, $this->vars->menus["stream_friend"] );
+				}
+		}
+		else if( preg_match("/^friend_music_(\d*)$/", $this->user->base["state"], $matches ) )
+		{
+			$friendUid = $matches[1];
+			if( "stream_friend" == $c["command"] )
+			{	
+				$user = new \User( $friendUid );
+				$toSend = $this->vars->texts["friend_music"];
+				$toSend = str_replace( "%name%", $user->base["first_name"] . " " . $user->base["last_name"] , $toSend );
+				$ret[] = $this->tgbot->createTextMessage( $toSend, $this->vars->menus["stream_friend"] );
+						
+				$songs = \Recommendations\getRecommendationSongsForUser( $friendUid );
+				foreach( $songs as $song )
+				{
+					$ret[] = $this->tgbot->createAudio( $song->telegram_id, "Hello!", $this->vars->menus["stream_friend"] );
+				}
+				\Recommendations\streamSended( $this->user->tid, $songs );	
+			}
+			else if( "finish_stream_friend" == $c["command"] )
+			{
+				$this->user->changeState( "" );
+				$ret[] = $this->tgbot->createTextMessage( $this->vars->texts["help"], $this->vars->menus["default"] );
+			}
+			else
+			{
+				$user = new \User( $friendUid );
+				$toSend = $this->vars->texts["friend_music"];
+				$toSend = str_replace( "%name%", $user->base["first_name"] . " " . $user->base["last_name"] , $toSend );
+				$ret[] = $this->tgbot->createTextMessage( $toSend, $this->vars->menus["stream_friend"] );
+				
+			}
 		}
 		else if(  "questionary_1" == $this->user->base["state"] )
 		{
 				$maleGenres = [ 5258, 245, 202, 11, 31961 ];
+				
 				$femaleGenres = [ 32496, 10, 269, 8, 4362, 31961 ];
 					
 				if( in_array( $c["command"], array("male", "female") ) )
@@ -77,6 +131,8 @@ class Handler extends HandlerBase{
 				}
 				else if( $c["command"] == "finish_questionary" )
 				{
+					$this->user->changeState( "" );
+					
 					\Recommendations\setUserGenres( $this->user->tid, array_merge( $femaleGenres, $maleGenres ) );
 					
 					$ret[] = $this->tgbot->createTextMessage( $this->vars->texts["welcome"], $this->vars->menus["default"] );
@@ -88,6 +144,22 @@ class Handler extends HandlerBase{
 					$ret[] = $this->tgbot->createTextMessage( $t, $this->vars->menus["questionary_1"] );
 				}
 		}
+		else if(  "importvk" == $this->user->base["state"] )
+		{
+			$textIndex = "";
+			if( "cancel" == $c["command"] )
+			{
+				$textIndex = "importvk_cancel";
+			}
+			else
+			{
+				$this->user->addFeedback( $text );
+				$textIndex = "importvk_thanks";	
+			}
+			$ret[] = $this->tgbot->createTextMessage( $this->vars->texts[$textIndex], $this->vars->menus["default"] );
+			$this->user->changeState( "" );
+			
+		}
 		else if( "stream" == $c["command"] )
 		{
 			$songs = \Recommendations\getRecommendationSongsForUser( $this->user->tid );
@@ -98,7 +170,7 @@ class Handler extends HandlerBase{
 			}
 			\Recommendations\streamSended( $this->user->tid, $songs );
 		}
-		else if( in_array( $c["command"], array("emojilove", "emojirussia", "emojiwinter", "emojisport") ) ) 
+		else if( in_array( $c["command"], array("emojilove", "emojirussia", "emojiwinter", "emojisport", "emojiparty") ) ) 
 		{
 			$songs = \Recommendations\getRecommendationSongsForUserForEmoji( $this->user->tid, $c["command"] );
 			$ret[] = $this->tgbot->createTextMessage( $this->vars->texts["rate_stream_emoji"], $this->vars->menus["stream_emoji"] );
@@ -111,6 +183,20 @@ class Handler extends HandlerBase{
 		else if( "stream_emoji" == $c["command"] )
 		{
 			$ret[] = $this->tgbot->createTextMessage( $this->vars->texts["stream_emoji"], $this->vars->menus["stream_emoji"] );
+		}
+		else if( "sharemusic" == $c["command"] )
+		{
+			$descr = str_replace( "%reflink%", $this->user->generate_reflink(), $this->vars->texts["template_share"] );
+			$ph = Photo::find( "template_share" );
+			$ret[] = $this->tgbot->createPhoto( $ph->photo_id, $descr, $this->vars->menus["default"] );
+
+			$textshare = str_replace( "%reflink%", $this->user->generate_reflink(), $this->vars->texts["sharemusic"] );
+			$ret[] = $this->tgbot->createTextMessage( $textshare, $this->vars->menus["default"] );
+		}
+		else if( "importvk" == $c["command"] )
+		{
+			$this->user->changeState( "importvk" );
+			$ret[] = $this->tgbot->createTextMessage( $this->vars->texts["importvk"], $this->vars->menus["importvk"] );
 		}
 		else if( "like" == $c["command"] )
 		{
